@@ -2,29 +2,14 @@
   "name": "tf2-easycrafter",
   "version": "0.1.0",
   "description": "Making my own crafting interface because TF2's is just so clunky",
-  "keywords": [
-    "node",
-    "javascript",
-    "tf2",
-    "steam",
-    "crafting",
-    "Team",
-    "Fortress",
-    "2"
-  ],
-  "homepage": "https://github.com/jkibort928/tf2-easycrafter#readme",
-  "bugs": {
-    "url": "https://github.com/jkibort928/tf2-easycrafter/issues"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/jkibort928/tf2-easycrafter.git"
-  },
   "license": "MIT",
   "author": "Jack Kibort",
   "type": "commonjs",
-  "main": "main.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node src/main.js"
+  },
+  "dependencies": {
+    "steam-user": "^5.3.0",
+    "tf2": "^4.0.0"
   }
 }
