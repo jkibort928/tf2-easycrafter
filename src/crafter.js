@@ -22,9 +22,11 @@ const TIMEOUT_MS = 10000
 const DefaultJunkConfig = {
     keepCleanSpare: true, // Don't junk last clean item
     useEquipped: false, // Don't junk equipped items
-    excludeSlots: [ItemEquipSlot.MELEE], // Exclude sniper items
-    excludeClasses: [TFClasses.SNIPER] // Exclude melee items
+    excludeSlots: [ItemEquipSlot.MELEE], // Don't junk melees (used to craft Conscientious Objector)
+    excludeClasses: [TFClasses.SNIPER]   // Don't junk Sniper items
 };
+
+export { DefaultJunkConfig };
 
 class Crafter {
     constructor(tf2Instance, itemSheet, logFunction) {
@@ -153,12 +155,62 @@ class Crafter {
         return true;
     }
 
+    // Smelt two specific weapons into 1 scrap. Bypasses the junk-config filter so the
+    // user can deliberately consume Strange/Vintage/melee/etc. instances that auto-junking
+    // protects. Still validates craftability and same-class requirement (the GC enforces both).
+    async smeltPair(item1, item2) {
+        if (!item1 || !item2) {
+            this._log("smeltPair: both items required.", LogLevel.WARN);
+            return false;
+        }
+        if (item1.id === item2.id) {
+            this._log("smeltPair: cannot smelt the same item twice.", LogLevel.WARN);
+            return false;
+        }
+        if (!this._itemIsCraftable(item1) || !this._itemIsCraftable(item2)) {
+            this._log("smeltPair: one or both items are uncraftable.", LogLevel.WARN);
+            return false;
+        }
+        if (!this._itemIsWeapon(item1) || !this._itemIsWeapon(item2)) {
+            this._log("smeltPair: both items must be weapons.", LogLevel.WARN);
+            return false;
+        }
+        const sheet1 = this.itemSheet[item1.def_index];
+        const sheet2 = this.itemSheet[item2.def_index];
+        const c1 = sheet1?.used_by_classes;
+        const c2 = sheet2?.used_by_classes;
+        const allClass1 = c1 == null;
+        const allClass2 = c2 == null;
+        if (!allClass1 && !allClass2 && !c1.some(c => c2.includes(c))) {
+            this._log(`smeltPair: items don't share a class (${(c1 || []).join('/')} vs ${(c2 || []).join('/')}).`, LogLevel.WARN);
+            return false;
+        }
+
+        this._log(`Smelting ${sheet1?.item_name || item1.def_index} + ${sheet2?.item_name || item2.def_index}...`);
+        this.tf2.craft([item1.id, item2.id]);
+        return await this._waitForCraft();
+    }
+
     // Junk weapons to scrap (default excludes melees and snipers' because they are useful for crafting objectors)
     async makeScrap(confirmCallback, config = DefaultJunkConfig) {
         const pair = this._getBestJunkPair(config);
-                
+
         if (!pair) {
-            this._log("No valid scrappable weapons found.", LogLevel.INFO);
+            // Distinguish "no junk at all" from "junk exists but can't pair".
+            const pool = this._getJunkItems(config);
+            if (pool.length === 0) {
+                this._log("No scrappable junk weapons in backpack.", LogLevel.INFO);
+            } else {
+                const names = pool
+                    .map(it => this.itemSheet[it.def_index]?.item_name || `defindex ${it.def_index}`)
+                    .filter((v, i, a) => a.indexOf(v) === i); // unique names
+                this._log(
+                    `Have ${pool.length} junk weapon(s) but none share a class — can't form a pair.`,
+                    LogLevel.INFO
+                );
+                this._log(`Items: ${names.join(', ')}`, LogLevel.INFO);
+                this._log(`Wait for another same-class drop, or use \`weapons smelt <N>\` to force-smelt a stack.`, LogLevel.INFO);
+            }
             return false;
         }
         

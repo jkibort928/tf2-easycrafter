@@ -1,8 +1,11 @@
 import prompts from 'prompts';
 
 import { LogLevel, LogColors } from './constants.js';
+import { loadEnv } from './envLoader.js';
 import TF2Engine from './tf2Engine.js';
 import ConsoleManager from './cli.js';
+
+await loadEnv();
 
 // Arg parsing
 import { parseArgs } from 'node:util';
